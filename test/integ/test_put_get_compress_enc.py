@@ -14,14 +14,21 @@ from unittest.mock import patch
 
 import pytest
 
-from snowflake.connector.s3_storage_client import SnowflakeS3RestClient
-
-from ..integ_helpers import put
+pytestmark = pytest.mark.skipolddriver
 
 try:
+    from snowflake.connector.s3_storage_client import SnowflakeS3RestClient
+
+    from ..integ_helpers import put
     from ..parameters import CONNECTION_PARAMETERS_ADMIN
+
+    orig_send_req = SnowflakeS3RestClient._send_request_with_authentication_and_retry
+
 except ImportError:
     CONNECTION_PARAMETERS_ADMIN = {}
+    SnowflakeS3RestClient = None
+    put = None
+    orig_send_req = None
 
 THIS_DIR = path.dirname(path.realpath(__file__))
 
@@ -37,9 +44,6 @@ def _prepare_tmp_file(to_dir: str) -> str:
         f.write("test1,test2\n")
         f.write("test3,test4")
     return test_path, file_name
-
-
-orig_send_req = SnowflakeS3RestClient._send_request_with_authentication_and_retry
 
 
 def mock_send_request(
@@ -71,11 +75,6 @@ def mock_send_request(
     )
 
 
-@pytest.mark.skipolddriver
-@pytest.mark.aws
-@pytest.mark.skipif(
-    not CONNECTION_PARAMETERS_ADMIN, reason="Snowflake admin account is not accessible."
-)
 @pytest.mark.parametrize("auto_compress", [True, False])
 def test_auto_compress_switch(
     tmp_path: pathlib.Path,
